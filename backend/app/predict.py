@@ -1,7 +1,7 @@
 # src/predict.py
 import torch
 import pandas as pd
-from src.model import PredictiveMaintenanceModel
+from backend.app.model import PredictiveMaintenanceModel
 import joblib  # 저장된 스케일러 불러오기
 
 def load_model(model_path="artifacts/model.pth", input_dim=10):
