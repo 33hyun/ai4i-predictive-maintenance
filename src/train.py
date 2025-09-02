@@ -5,18 +5,23 @@ import torch.nn as nn
 import torch.optim as optim
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+import joblib
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, roc_curve, auc
 from torch.utils.data import DataLoader, TensorDataset
 
 # -------------------------------
 # 모델 정의
 # -------------------------------
+
+
 class PredictiveMaintenanceModel(nn.Module):
     """
     간단한 Feedforward Neural Network
     입력 -> Linear -> ReLU -> Dropout -> Linear -> ReLU -> Dropout -> Linear -> Sigmoid
     이진분류를 위해 마지막 활성화 함수 Sigmoid 사용
     """
+
     def __init__(self, input_dim):
         super().__init__()
         self.net = nn.Sequential(
@@ -34,33 +39,54 @@ class PredictiveMaintenanceModel(nn.Module):
         return self.net(x)
 
 # -------------------------------
-# 데이터 로드
+# 데이터 로드 및 스케일링
 # -------------------------------
+
+
 def load_data():
     """
-    전처리 완료된 CSV 데이터를 불러와 Tensor로 변환 후 DataLoader 생성
+    전처리 완료된 CSV 데이터를 불러와 StandardScaler로 스케일링 후 Tensor로 변환
     train_loader와 test_loader 반환
     """
-    X_train = pd.read_csv("data/processed/X_train.csv").astype(float).values
-    X_test = pd.read_csv("data/processed/X_test.csv").astype(float).values
+    X_train = pd.read_csv("data/processed/X_train.csv")
+    X_test = pd.read_csv("data/processed/X_test.csv")
     y_train = pd.read_csv("data/processed/y_train.csv").values.ravel()
     y_test = pd.read_csv("data/processed/y_test.csv").values.ravel()
 
+    # 수치형 컬럼 리스트
+    numeric_features = X_train.columns.tolist()  # 전체 컬럼을 수치형으로 가정
+
+    # StandardScaler 적용
+    scaler = StandardScaler()
+    X_train[numeric_features] = scaler.fit_transform(X_train[numeric_features])
+    X_test[numeric_features] = scaler.transform(X_test[numeric_features])
+
+    # 스케일러 저장
+    os.makedirs("artifacts", exist_ok=True)
+    joblib.dump(scaler, "artifacts/scaler.pkl")
+
     # Tensor 변환 (모델 입력용)
-    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-    y_train_tensor = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)  # shape 맞춤
+    X_train_tensor = torch.tensor(
+        X_train.values.astype(float), dtype=torch.float32)
+    X_test_tensor = torch.tensor(
+        X_test.values.astype(float), dtype=torch.float32)
+    y_train_tensor = torch.tensor(
+        y_train, dtype=torch.float32).unsqueeze(1)  # shape 맞춤
     y_test_tensor = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
 
     # DataLoader 생성 (배치 단위 학습)
-    train_loader = DataLoader(TensorDataset(X_train_tensor, y_train_tensor), batch_size=32, shuffle=True)
-    test_loader = DataLoader(TensorDataset(X_test_tensor, y_test_tensor), batch_size=32)
+    train_loader = DataLoader(TensorDataset(
+        X_train_tensor, y_train_tensor), batch_size=32, shuffle=True)
+    test_loader = DataLoader(TensorDataset(
+        X_test_tensor, y_test_tensor), batch_size=32)
 
     return train_loader, test_loader
 
 # -------------------------------
 # 학습 함수
 # -------------------------------
+
+
 def train_model(model, train_loader, criterion, optimizer, device):
     """
     한 에포크 동안 모델 학습 수행
@@ -77,6 +103,8 @@ def train_model(model, train_loader, criterion, optimizer, device):
 # -------------------------------
 # 평가 함수
 # -------------------------------
+
+
 def evaluate_model(model, test_loader, device):
     """
     테스트 데이터에 대한 모델 평가
@@ -115,6 +143,8 @@ def evaluate_model(model, test_loader, device):
 # -------------------------------
 # 시각화 저장
 # -------------------------------
+
+
 def save_visualizations(metrics, save_dir="artifacts"):
     """
     Confusion Matrix와 ROC Curve 시각화 후 저장
@@ -150,12 +180,15 @@ def save_visualizations(metrics, save_dir="artifacts"):
 # -------------------------------
 # 메인 실행
 # -------------------------------
+
+
 def main():
     # MPS(macOS GPU) 또는 CPU 사용
-    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    device = torch.device(
+        "mps" if torch.backends.mps.is_available() else "cpu")
     print("Using device:", device)
 
-    # 데이터 로드
+    # 데이터 로드 및 스케일링
     train_loader, test_loader = load_data()
     input_dim = pd.read_csv("data/processed/X_train.csv").shape[1]
 
@@ -182,7 +215,8 @@ def main():
 
     # 시각화 저장
     save_visualizations(metrics)
-    print("모델 학습, 평가, 시각화, 저장 완료!")
+    print("모델 학습, 평가, 시각화, 스케일러 저장 완료!")
+
 
 if __name__ == "__main__":
     main()
