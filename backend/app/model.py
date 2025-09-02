@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 class PredictiveMaintenanceModel(nn.Module):
-    def __init__(self, input_dim: int):
+    def __init__(self, input_dim):
         super().__init__()
-        self.model = nn.Sequential(
+        self.net = nn.Sequential(
             nn.Linear(input_dim, 64),
             nn.ReLU(),
             nn.Dropout(0.2),
@@ -15,5 +15,5 @@ class PredictiveMaintenanceModel(nn.Module):
             nn.Sigmoid()
         )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.model(x)
+    def forward(self, x):
+        return self.net(x)
